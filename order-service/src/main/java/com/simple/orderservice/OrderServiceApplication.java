@@ -17,9 +17,14 @@ import org.springframework.messaging.SubscribableChannel;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.annotation.support.SendToMethodReturnValueHandler;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.simple.orderservice.model.OrderEvent;
+
 
 @RestController
 @EnableBinding(OrderSource.class)
@@ -28,62 +33,61 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderServiceApplication {
 
 	
+	
 	//private OrderSource source;
 	private MessageChannel source;
+	private SubscribableChannel incomingsource;
 	
 	
 	public OrderServiceApplication(OrderSource channels) {
 		this.source=channels.ordersOut();
+		this.incomingsource=channels.ordersIn();
 	}
 
-	@PostMapping("/msg/{name}")
-	public void publish(@PathVariable String name) {
+	@PostMapping("/msg/")
+	public void publish(@RequestBody OrderEvent orderEvent) {
 		
-		String greet="Hello "+name;
 		
-		Message<String> greeting=MessageBuilder.withPayload(greet).build();
-		this.source.send(greeting);
+		Message<OrderEvent> orderin=MessageBuilder.withPayload(orderEvent).build();
+		this.source.send(orderin);
 		
 	}
+	
+	//creating the listener
+	
+	@Component
+	@EnableBinding(OrderSource.class)
+	@EnableAutoConfiguration
+	public static class SimpleTest {
+		private final Log log=LogFactory.getLog(getClass());
+		
+		
+	    @StreamListener(target = OrderSource.INPUT)
+	    public void inputPayload(OrderEvent orderEvent) {
+	    	
+	    	log.info("\n"+orderEvent.getOrder().getOrderId()+"\n"+orderEvent.getOrder().getProName()+"\n"+orderEvent.getOrder().getQty()+"\nOrder Status \t"+orderEvent.getStatus().toString());
+	    }
+
+	}
+	
 	
 	public static void main(String[] args) {
 		SpringApplication.run(OrderServiceApplication.class, args);
 		
 		
-	
 	}
-/*	
-	@SendTo(OrderSource.OUTPUT)
-	public static String sendval() {
-		return "Apache Kafka Fucking Rules";
-	}
-	
-	
-	public static class TestPojoWithAnnotatedArguments {
 
-		private final Log log=LogFactory.getLog(getClass());
-		
-	    @StreamListener(target = OrderSource.INPUT)
-	    public void receiveStock(@Payload String value ) {
-	      
-	    	log.info("This is the recieved value after the processing"+value);
-	    	
-	    }
-
-	   
-	}
-	*/
 	
 }
 
-
+//////////////////////////////////////End of the Application Class/////////////////////////////////////////////////////
 
 
 interface OrderSource {
 	
-//String INPUT="ordersIn";	
-//@Input(OrderSource.INPUT)
-//SubscribableChannel ordersIn();
+String INPUT="ordersIn";	
+@Input(OrderSource.INPUT)
+SubscribableChannel ordersIn();
 
 
 String OUTPUT="ordersOut";
